@@ -63,12 +63,41 @@ int main(void* args)
             printf("It's player %i's turn! Type a column number, or Z to undo, Y to redo: \n", player);
             fgets(input, sizeof input, stdin);
 
+
+            if (input[0] == 'Z')
+            {
+                printf("undo...");
+                Sleep(2000);
+                continue;
+            }
+
+            if (input[0] == 'Y')
+            {
+                printf("redo...");
+                Sleep(2000);
+                continue;
+            }
+
             int column;
             sscanf_s(input, "%d", &column);
 
-            gamestate_push(&game, player, column-1);
+            if (column < 1 || column > game.board.width)
+            {
+                printf("Bad input...");
+                Sleep(2000);
+                continue;
+            }
 
-            game.turns++;
+            gamestate_push(&game, player, column-1);
+        }
+
+        int winner = gamestate_check_winner(&game);
+
+        if (winner > 0)
+        {
+            printf("Player %d wins!", winner);
+            Sleep(2000);
+            board_clear(&game.board);
         }
     }
 

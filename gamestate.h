@@ -40,14 +40,16 @@ void gamestate_apply(struct gamestate* game, const struct move* move)
  */
 void gamestate_resize(struct gamestate* game, int newCapacity)
 {
-    struct move* newMoveStack = malloc(sizeof(struct move) * newCapacity);
-    struct move* newUndoStack = malloc(sizeof(struct move) * newCapacity);
+    int test = sizeof(struct move);
+
+    struct move* newMoveStack = calloc(newCapacity, sizeof(struct move));
+    struct move* newUndoStack = calloc(newCapacity, sizeof(struct move));
 
     if (game->moveStack != NULL) {
         memcpy(newMoveStack, game->moveStack, sizeof(struct move) * game->moveStackCapacity);
         memcpy(newUndoStack, game->undoStack, sizeof(struct move) * game->moveStackCapacity);
-        //free(game->moveStack);
-        //free(game->undoStack);
+        free(game->moveStack);
+        free(game->undoStack);
     }
 
     game->moveStack = newMoveStack;
@@ -79,7 +81,7 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
 
     const int turn = game->turns++;
 
-    if (turn > game->moveStackCapacity)
+    if (turn > game->moveStackCapacity-1)
     {
         // we've hit the limit, double the size of the stack
         const int newCapacity = game->moveStackCapacity * 2;
@@ -119,4 +121,53 @@ void gamestate_redo(struct gamestate* game)
     game->turns++;
     game->undoCount--;
     gamestate_apply(game, &lastMove);
+}
+
+
+int gamestate_check_winner_scan(struct gamestate* game, int player)
+{
+    struct board* board = &game->board;
+    int width = board->width;
+    int height = board->height;
+
+    // horizontal check 
+    for (int j = 0; j < height - 3; j++) {
+        for (int i = 0; i < width; i++) {
+            if (*board_getCell(board, i, j) == player && *board_getCell(board, i, j+1) == player && *board_getCell(board, i, j+2) == player && *board_getCell(board, i, j+3) == player) {
+                return 1;
+            }
+        }
+    }
+    // vertical check
+    for (int i = 0; i < width - 3; i++) {
+        for (int j = 0; j < height; j++) {
+            if (*board_getCell(board, i, j) == player && *board_getCell(board, i+1, j) == player && *board_getCell(board, i + 2, j) == player && *board_getCell(board, i+3, j) == player) {
+                return 1;
+            }
+        }
+    }
+    // diagonal check (ascending)
+    for (int i = 3; i < width; i++) {
+        for (int j = 0; j < height - 3; j++) {
+            if (*board_getCell(board, i, j) == player && *board_getCell(board, i - 1, j + 1) == player && *board_getCell(board, i - 2, j + 2) == player && *board_getCell(board, i - 3, j + 3) == player)
+                return 1;
+        }
+    }
+    // diagonal check (descending)
+    for (int i = 3; i < width; i++) {
+        for (int j = 3; j < height; j++) {
+            if (*board_getCell(board, i, j) && *board_getCell(board, i - 1, j - 1) == player && *board_getCell(board, i - 2, j - 2) == player && *board_getCell(board, i - 3, j - 3) == player)
+                return 1;
+        }
+    }
+    return 0;
+}
+
+int gamestate_check_winner(struct gamestate* game)
+{
+    if (gamestate_check_winner_scan(game, 1) == 1)
+        return 1;
+    else if (gamestate_check_winner_scan(game, 2) == 1)
+        return 2;
+    return 0;
 }
