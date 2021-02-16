@@ -70,6 +70,13 @@ void gamestate_init(struct gamestate* game)
     gamestate_resize(game, game->moveStackCapacity);
 }
 
+void gamestate_reset(struct gamestate* game)
+{
+    game->turns = 0;
+    game->undoCount = 0;
+    board_clear(&game->board);
+}
+
 /*
  * Push a new move onto the move stack
  */
@@ -105,7 +112,14 @@ void gamestate_undo(struct gamestate* game)
     game->undoStack[game->undoCount] = lastMove;
     game->turns--;
     game->undoCount++;
-    gamestate_apply(game, &lastMove);
+
+    struct move undoMove;
+    undoMove.player = 0;
+    undoMove.column = lastMove.column;
+
+    int y = board_findEmptyRow(&game->board, lastMove.column) + 1;
+    int* cell = board_getCell(&game->board, lastMove.column, y);
+    *cell = 0;
 }
 
 /*
@@ -124,6 +138,8 @@ void gamestate_redo(struct gamestate* game)
 }
 
 
+// scan the grid for a a row of fours
+// algorithm based on https://stackoverflow.com/a/38211417
 int gamestate_check_winner_scan(struct gamestate* game, int player)
 {
     struct board* board = &game->board;
