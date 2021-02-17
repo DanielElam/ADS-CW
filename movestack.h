@@ -27,7 +27,7 @@ void movestack_init(struct movestack* stack)
 {
     stack->capacity = 4;
     stack->head = 0;
-    stack->buffer = malloc(sizeof(struct move) * stack->capacity);
+    stack->buffer = (struct move*)malloc(sizeof(struct move) * stack->capacity);
 }
 
 void movestack_clear(struct movestack* movestack)
@@ -40,7 +40,7 @@ void movestack_ensure_capacity(struct movestack* stack)
     if (stack->head + 1 >= stack->capacity)
     {
         stack->capacity *= 2;
-        stack->buffer = realloc(stack->buffer, sizeof(struct move) * stack->capacity);
+        stack->buffer = (struct move*)realloc(stack->buffer, sizeof(struct move) * stack->capacity);
     }
 }
 

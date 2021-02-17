@@ -31,7 +31,7 @@ void board_init(struct board* board, int width, int height)
 {
     board->width = width;
     board->height = height;
-    board->grid = calloc(width * height, sizeof(int));
+    board->grid = (int*)calloc(width * height, sizeof(int));
 }
 
 /* Returns a pointer to the cell in the board's grid */

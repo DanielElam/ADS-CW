@@ -16,7 +16,7 @@ struct gamestate
 void gamestate_init(struct gamestate* game)
 {
     board_init(&game->board, 7, 6);
-    game->mode = 0;
+    game->mode = (enum gamemode)0;
     movestack_init(&game->moveStack);
     movestack_init(&game->undoStack);
 }

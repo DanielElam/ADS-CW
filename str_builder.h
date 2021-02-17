@@ -10,7 +10,7 @@ struct str_builder
 
 void str_builder_init(struct str_builder* sb)
 {
-    sb->buffer = malloc(str_builder_min_size);
+    sb->buffer = (char*)malloc(str_builder_min_size);
     *sb->buffer = '\0';
     sb->capacity = str_builder_min_size;
     sb->count = 0;
@@ -21,7 +21,7 @@ void str_builder_ensureCapacity(struct str_builder* sb, int increment)
     if (sb->count + increment > sb->capacity)
     {
         const int newCapacity = (sb->count + increment * 2) + 1;
-        sb->buffer = realloc(sb->buffer, sizeof(char) * newCapacity);
+        sb->buffer = (char*)realloc(sb->buffer, sizeof(char) * newCapacity);
     }
 }
 
@@ -35,7 +35,7 @@ void str_builder_addChar(struct str_builder* sb, unsigned char c)
     sb->count++;
 }
 
-void str_builder_addString(struct str_builder* sb, unsigned char* str, int strLen)
+void str_builder_addString(struct str_builder* sb, char* str, int strLen)
 {
     if (sb == NULL || str == NULL || *str == '\0')
         return;
