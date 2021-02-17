@@ -50,11 +50,11 @@ int* board_getCell(struct board* board, int x, int y)
 int board_findEmptyRow(struct board* board, int column)
 {
     int y;
-    for (y = board->height - 1; y > 0; y--)
+    for (y = board->height - 1; y >= 0; y--)
     {
         int cell = *board_getCell(board, column, y);
         if (cell == 0)
-            break;
+            return y;
     }
-    return y;
+    return -1;
 }

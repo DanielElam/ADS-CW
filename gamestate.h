@@ -28,13 +28,6 @@ struct gamestate
     int moveStackCapacity;
 };
 
-void gamestate_apply(struct gamestate* game, const struct move* move)
-{
-    int y = board_findEmptyRow(&game->board, move->column);
-    int* cell = board_getCell(&game->board, move->column, y);
-    *cell = move->player;
-}
-
 /*
     Resize the move and undo stacks to the given capacity.
  */
@@ -58,6 +51,9 @@ void gamestate_resize(struct gamestate* game, int newCapacity)
     game->moveStackCapacity = newCapacity;
 }
 
+/*
+    Initialize a gamestate instance
+*/
 void gamestate_init(struct gamestate* game)
 {
     board_init(&game->board, 7, 6);
@@ -70,6 +66,9 @@ void gamestate_init(struct gamestate* game)
     gamestate_resize(game, game->moveStackCapacity);
 }
 
+/*
+    Reset counters and clear the board
+*/
 void gamestate_reset(struct gamestate* game)
 {
     game->turns = 0;
@@ -86,6 +85,12 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
     move.player = player;
     move.column = column;
 
+    int y = board_findEmptyRow(&game->board, column);
+    if (y == -1) {
+        printf("Bad move - column full!");
+        return;
+    }
+
     const int turn = game->turns++;
 
     if (turn > game->moveStackCapacity-1)
@@ -97,7 +102,8 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
 
     game->moveStack[turn] = move;
     game->undoCount = 0;
-    gamestate_apply(game, &move);
+
+    *board_getCell(&game->board, column, y) = player;
 }
 
 /*
@@ -118,8 +124,7 @@ void gamestate_undo(struct gamestate* game)
     undoMove.column = lastMove.column;
 
     int y = board_findEmptyRow(&game->board, lastMove.column) + 1;
-    int* cell = board_getCell(&game->board, lastMove.column, y);
-    *cell = 0;
+    *board_getCell(&game->board, lastMove.column, y) = 0;
 }
 
 /*
@@ -134,7 +139,9 @@ void gamestate_redo(struct gamestate* game)
     game->moveStack[game->turns] = lastMove;
     game->turns++;
     game->undoCount--;
-    gamestate_apply(game, &lastMove);
+
+    int y = board_findEmptyRow(&game->board, lastMove.column);
+    *board_getCell(&game->board, lastMove.column, y) = lastMove.player;
 }
 
 
