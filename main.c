@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include "movestack.h"
 #include "board.h"
 #include "console.h"
 #include "gamestate.h"
@@ -44,6 +45,42 @@ void board_print(struct board* board)
     }
 }
 
+void parse_savegame(struct gamestate* game, FILE* file, int* replay_turn_count, struct movestack* moveStack)
+{
+    char buffer[255];
+
+    struct move move;
+
+    while (fgets(buffer, 255, file)) {
+        printf("%s\n", buffer);
+
+        if (buffer[0] == '#')
+            continue;
+
+        char* token = strtok(buffer, " ");
+
+        while (token != NULL)
+        {
+            token = strtok(NULL, " ");
+            if (strcmp(token, "Player") == 0)
+            {
+                token = strtok(NULL, " ");
+                sscanf_s(token, "%d", &move.player);
+
+                strtok(NULL, " ");
+                strtok(NULL, " ");
+                strtok(NULL, " ");
+                token = strtok(NULL, " ");
+                sscanf_s(token, "%d", &move.column);
+                move.column--;
+
+                movestack_push(moveStack, move);
+                break;
+            }
+        }
+    }
+}
+
 int main(void* args)
 {
     char input[1000];
@@ -56,17 +93,22 @@ int main(void* args)
     struct gamestate game;
     gamestate_init(&game);
 
+    int replayTurnCount;
+    struct movestack replayStack;
+    movestack_init(&replayStack);
+
     while (1) {
         clear_console();
 
         if (inMenu == 1)
         {
-            printf("Connect Four\n");
-            printf("Written by Daniel Elam\n\n");
-
-            printf("1) Singleplayer (AI)\n");
-            printf("2) Two Player\n");
-            printf("3) Watch Replay\n");
+            printf(" \n");
+            printf(" | Connect Four\n");
+            printf(" | Written by Daniel Elam\n");
+            printf(" \n");
+            printf("  1) Singleplayer (AI)\n");
+            printf("  2) Two Player\n");
+            printf("  3) Watch Replay\n");
 
             fgets(input, sizeof input, stdin);
             int select;
@@ -84,20 +126,57 @@ int main(void* args)
                 game.mode = GAMEMODE_TWOPLAYER;
                 gamestate_reset(&game);
                 break;
+            case 3:
+                FILE * file = NULL;
+                while (1) {
+                    clear_console();
+                    printf("Enter the path to the save file: ");
+                    fgets(input, sizeof input, stdin);
+                    strtok(input, "\n");
+
+                    if (input[0] == '\n')
+                        break;
+
+                    printf("\n");
+                    file = fopen(input, "r");
+                    if (file == NULL) {
+                        printf("Could not open file %s", input);
+                        continue;
+                    }
+                    else
+                    {
+                        break;
+                    }
+                }
+
+                if (file != NULL) {
+                    parse_savegame(&game, file, &replayTurnCount, &replayStack);
+
+                    inMenu = 0;
+                    gamestate_reset(&game);
+                    game.mode = GAMEMODE_REPLAY;
+
+                    fclose(file);
+                }
+
+                break;
             }
         }
         else {
-            if (game.mode == GAMEMODE_TWOPLAYER || game.mode == GAMEMODE_SINGLEPLAYER)
+            if (game.mode == GAMEMODE_TWOPLAYER || game.mode == GAMEMODE_SINGLEPLAYER || game.mode == GAMEMODE_REPLAY)
             {
-                const int player = 1 + (game.turnCount % 2);
+                const int player = 1 + (game.moveStack.head % 2);
                 int winner = gamestate_check_winner(&game);
                 board_print(&game.board);
                 if (winner > 0) {
                     SetConsoleTextAttribute(consoleHandle, winner == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
-                    printf("Player %i won the game!", winner);
+                    printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
+                    printf("  ! ! Player %i won the game ! !\n", winner);
+                    printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
                     SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
-                    printf(" Press enter to return to menu.\n");
-                    gamestate_save(&game);
+                    printf("  > Press enter to return to menu.\n");
+                    if (game.mode != GAMEMODE_REPLAY)
+                        gamestate_save(&game);
                     fgets(input, sizeof input, stdin);
                     inMenu = 1;
                 }
@@ -109,6 +188,19 @@ int main(void* args)
                         gamestate_push(&game, 2, rand() % game.board.width);
                         Sleep(1000);
                         continue;
+                    }
+                    else if (game.mode == GAMEMODE_REPLAY) {
+                        printf("(REPLAY) It's ");
+                        SetConsoleTextAttribute(consoleHandle, player == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
+                        printf("player %i's", player);
+                        SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
+                        printf(" turn! (REPLAY)\n");
+
+                        struct move replayMove = movestack_pop(&replayStack);
+                        gamestate_push(&game, replayMove.player, replayMove.column);
+                        input[0] = '\n';
+
+                        Sleep(1000);
                     }
                     else {
                         printf("It's ");

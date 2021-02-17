@@ -1,56 +1,14 @@
 #pragma once
 #include "str_builder.h"
-
-/*
-    Stores data about a player's move
-*/
-struct move
-{
-    /*
-        The player that made the move
-    */
-    int player;
-    /*
-        The column the player selected
-    */
-    int column;
-};
-
-enum gamemode { GAMEMODE_SINGLEPLAYER, GAMEMODE_TWOPLAYER };
+enum gamemode { GAMEMODE_SINGLEPLAYER, GAMEMODE_TWOPLAYER, GAMEMODE_REPLAY };
 
 struct gamestate
 {
     struct board board;
     enum gamemode mode;
-    int turnCount;
-    int undoCount;
-    struct move* moveStack;
-    struct move* undoStack;
-    int stackCapacity;
+    struct movestack moveStack;
+    struct movestack undoStack;
 };
-
-/*
-    Resize the move and undo stacks to the given capacity.
- */
-void gamestate_resize(struct gamestate* game, int newCapacity)
-{
-    int test = sizeof(struct move);
-
-    struct move* newMoveStack = calloc(newCapacity, sizeof(struct move));
-    struct move* newUndoStack = calloc(newCapacity, sizeof(struct move));
-
-    if (game->moveStack != NULL) {
-        memcpy(newMoveStack, game->moveStack, sizeof(struct move) * game->stackCapacity);
-        memcpy(newUndoStack, game->undoStack, sizeof(struct move) * game->stackCapacity);
-        free(game->moveStack);
-        free(game->undoStack);
-    }
-
-    game->moveStack = newMoveStack;
-    game->undoStack = newUndoStack;
-
-    game->stackCapacity = newCapacity;
-}
 
 /*
     Initialize a gamestate instance
@@ -59,12 +17,8 @@ void gamestate_init(struct gamestate* game)
 {
     board_init(&game->board, 7, 6);
     game->mode = 0;
-    game->turnCount = 0;
-    game->undoCount = 0;
-    game->stackCapacity = 2;
-    game->moveStack = NULL;
-    game->undoStack = NULL;
-    gamestate_resize(game, game->stackCapacity);
+    movestack_init(&game->moveStack);
+    movestack_init(&game->undoStack);
 }
 
 /*
@@ -72,8 +26,8 @@ void gamestate_init(struct gamestate* game)
 */
 void gamestate_reset(struct gamestate* game)
 {
-    game->turnCount = 0;
-    game->undoCount = 0;
+    movestack_clear(&game->moveStack);
+    movestack_clear(&game->undoStack);
     board_clear(&game->board);
 }
 
@@ -91,18 +45,9 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
         printf("Bad move - column full!");
         return;
     }
-
-    const int turn = game->turnCount++;
-
-    if (turn > game->stackCapacity-1)
-    {
-        // we've hit the limit, double the size of the stack
-        const int newCapacity = game->stackCapacity * 2;
-        gamestate_resize(game, newCapacity);
-    }
-
-    game->moveStack[turn] = move;
-    game->undoCount = 0;
+    
+    movestack_push(&game->moveStack, move);
+    movestack_clear(&game->undoStack);
 
     *board_getCell(&game->board, column, y) = player;
 }
@@ -112,13 +57,11 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
  */
 void gamestate_undo(struct gamestate* game)
 {
-    if (game->turnCount == 0)
+    if (game->moveStack.head == 0)
         return;
 
-    const struct move lastMove = game->moveStack[game->turnCount-1];
-    game->undoStack[game->undoCount] = lastMove;
-    game->turnCount--;
-    game->undoCount++;
+    const struct move lastMove = movestack_pop(&game->moveStack);
+    movestack_push(&game->undoStack, lastMove);
 
     struct move undoMove;
     undoMove.player = 0;
@@ -133,13 +76,11 @@ void gamestate_undo(struct gamestate* game)
  */
 void gamestate_redo(struct gamestate* game)
 {
-    if (game->undoCount == 0)
+    if (game->undoStack.head == 0)
         return;
 
-    const struct move lastMove = game->undoStack[game->undoCount - 1];
-    game->moveStack[game->turnCount] = lastMove;
-    game->turnCount++;
-    game->undoCount--;
+    const struct move lastMove = movestack_pop(&game->undoStack);
+    movestack_push(&game->moveStack, lastMove);
 
     int y = board_findEmptyRow(&game->board, lastMove.column);
     *board_getCell(&game->board, lastMove.column, y) = lastMove.player;
@@ -154,7 +95,7 @@ int gamestate_check_winner_scan(struct gamestate* game, int player)
     int width = board->width;
     int height = board->height;
 
-    // horizontal check 
+    // vertical check 
     for (int j = 0; j < height - 3; j++) {
         for (int i = 0; i < width; i++) {
             if (*board_getCell(board, i, j) == player && *board_getCell(board, i, j+1) == player && *board_getCell(board, i, j+2) == player && *board_getCell(board, i, j+3) == player) {
@@ -162,7 +103,8 @@ int gamestate_check_winner_scan(struct gamestate* game, int player)
             }
         }
     }
-    // vertical check
+
+    // horizontal check
     for (int i = 0; i < width - 3; i++) {
         for (int j = 0; j < height; j++) {
             if (*board_getCell(board, i, j) == player && *board_getCell(board, i+1, j) == player && *board_getCell(board, i + 2, j) == player && *board_getCell(board, i+3, j) == player) {
@@ -211,9 +153,9 @@ void gamestate_save(struct gamestate* game)
     char buffer[255];
 
     int i;
-    for (i = 0; i < game->turnCount; i++)
+    for (i = 0; i < game->moveStack.head; i++)
     {
-        struct move move = game->moveStack[i];
+        const struct move move = game->moveStack.buffer[i];
         sprintf(buffer, "[Turn %i] Player %i drops into column: %i\n", i + 1, move.player, move.column + 1);
         str_builder_addString(&sb, buffer, 0);
     }
