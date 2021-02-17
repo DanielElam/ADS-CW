@@ -1,4 +1,5 @@
 #pragma once
+#include "str_builder.h"
 
 /*
     Stores data about a player's move
@@ -15,17 +16,17 @@ struct move
     int column;
 };
 
-enum gamemode { GAMEMODE_VERSUSPLAYER, GAMEMODE_VERSUSAI };
+enum gamemode { GAMEMODE_SINGLEPLAYER, GAMEMODE_TWOPLAYER };
 
 struct gamestate
 {
     struct board board;
     enum gamemode mode;
-    int turns;
+    int turnCount;
     int undoCount;
     struct move* moveStack;
     struct move* undoStack;
-    int moveStackCapacity;
+    int stackCapacity;
 };
 
 /*
@@ -39,8 +40,8 @@ void gamestate_resize(struct gamestate* game, int newCapacity)
     struct move* newUndoStack = calloc(newCapacity, sizeof(struct move));
 
     if (game->moveStack != NULL) {
-        memcpy(newMoveStack, game->moveStack, sizeof(struct move) * game->moveStackCapacity);
-        memcpy(newUndoStack, game->undoStack, sizeof(struct move) * game->moveStackCapacity);
+        memcpy(newMoveStack, game->moveStack, sizeof(struct move) * game->stackCapacity);
+        memcpy(newUndoStack, game->undoStack, sizeof(struct move) * game->stackCapacity);
         free(game->moveStack);
         free(game->undoStack);
     }
@@ -48,7 +49,7 @@ void gamestate_resize(struct gamestate* game, int newCapacity)
     game->moveStack = newMoveStack;
     game->undoStack = newUndoStack;
 
-    game->moveStackCapacity = newCapacity;
+    game->stackCapacity = newCapacity;
 }
 
 /*
@@ -58,12 +59,12 @@ void gamestate_init(struct gamestate* game)
 {
     board_init(&game->board, 7, 6);
     game->mode = 0;
-    game->turns = 0;
+    game->turnCount = 0;
     game->undoCount = 0;
-    game->moveStackCapacity = 2;
+    game->stackCapacity = 2;
     game->moveStack = NULL;
     game->undoStack = NULL;
-    gamestate_resize(game, game->moveStackCapacity);
+    gamestate_resize(game, game->stackCapacity);
 }
 
 /*
@@ -71,7 +72,7 @@ void gamestate_init(struct gamestate* game)
 */
 void gamestate_reset(struct gamestate* game)
 {
-    game->turns = 0;
+    game->turnCount = 0;
     game->undoCount = 0;
     board_clear(&game->board);
 }
@@ -91,12 +92,12 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
         return;
     }
 
-    const int turn = game->turns++;
+    const int turn = game->turnCount++;
 
-    if (turn > game->moveStackCapacity-1)
+    if (turn > game->stackCapacity-1)
     {
         // we've hit the limit, double the size of the stack
-        const int newCapacity = game->moveStackCapacity * 2;
+        const int newCapacity = game->stackCapacity * 2;
         gamestate_resize(game, newCapacity);
     }
 
@@ -111,12 +112,12 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
  */
 void gamestate_undo(struct gamestate* game)
 {
-    if (game->turns == 0)
+    if (game->turnCount == 0)
         return;
 
-    const struct move lastMove = game->moveStack[game->turns-1];
+    const struct move lastMove = game->moveStack[game->turnCount-1];
     game->undoStack[game->undoCount] = lastMove;
-    game->turns--;
+    game->turnCount--;
     game->undoCount++;
 
     struct move undoMove;
@@ -136,8 +137,8 @@ void gamestate_redo(struct gamestate* game)
         return;
 
     const struct move lastMove = game->undoStack[game->undoCount - 1];
-    game->moveStack[game->turns] = lastMove;
-    game->turns++;
+    game->moveStack[game->turnCount] = lastMove;
+    game->turnCount++;
     game->undoCount--;
 
     int y = board_findEmptyRow(&game->board, lastMove.column);
@@ -193,4 +194,37 @@ int gamestate_check_winner(struct gamestate* game)
     else if (gamestate_check_winner_scan(game, 2) == 1)
         return 2;
     return 0;
+}
+
+void gamestate_save(struct gamestate* game)
+{
+    time_t now = time(NULL);
+    struct tm* time = gmtime(&now);
+
+    char filename[40];
+    strftime(filename, sizeof(filename), "connect4-save_%Y-%m-%d_%H-%M-%S.txt", time);
+
+    struct str_builder sb;
+    str_builder_init(&sb);
+    str_builder_addString(&sb, "# Connect 4 Game Save\n", 0);
+
+    char buffer[255];
+
+    int i;
+    for (i = 0; i < game->turnCount; i++)
+    {
+        struct move move = game->moveStack[i];
+        sprintf(buffer, "[Turn %i] Player %i drops into column: %i\n", i + 1, move.player, move.column + 1);
+        str_builder_addString(&sb, buffer, 0);
+    }
+
+    FILE* file = fopen(filename, "w");
+
+    // exiting program 
+    if (file == NULL) {
+        printf("Error opening file %s", filename);
+        exit(1);
+    }
+    fprintf(file, "%s", sb.buffer);
+    fclose(file);
 }

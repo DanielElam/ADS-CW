@@ -1,6 +1,8 @@
 ﻿
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
+
 #include "board.h"
 #include "console.h"
 #include "gamestate.h"
@@ -46,6 +48,8 @@ int main(void* args)
 {
     char input[1000];
 
+    int inMenu = 1;
+
     int k;
     consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
@@ -54,61 +58,103 @@ int main(void* args)
 
     while (1) {
         clear_console();
-        
-        int winner = gamestate_check_winner(&game);
 
-        board_print(&game.board);
-        
-        const int player = 1 + (game.turns % 2);
-
-        if (game.mode == GAMEMODE_VERSUSPLAYER)
+        if (inMenu == 1)
         {
-            if (winner > 0) {
-                SetConsoleTextAttribute(consoleHandle, winner == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
-                printf("Player %i won the game!", winner);
-                SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
-                printf(" Press enter to return to menu.\n");
-                fgets(input, sizeof input, stdin);
+            printf("Connect Four\n");
+            printf("Written by Daniel Elam\n\n");
+
+            printf("1) Singleplayer (AI)\n");
+            printf("2) Two Player\n");
+            printf("3) Watch Replay\n");
+
+            fgets(input, sizeof input, stdin);
+            int select;
+            sscanf_s(input, "%d", &select);
+
+            switch (select)
+            {
+            case 1:
+                inMenu = 0;
+                game.mode = GAMEMODE_SINGLEPLAYER;
                 gamestate_reset(&game);
+                break;
+            case 2:
+                inMenu = 0;
+                game.mode = GAMEMODE_TWOPLAYER;
+                gamestate_reset(&game);
+                break;
             }
-            else
+        }
+        else {
+            if (game.mode == GAMEMODE_TWOPLAYER || game.mode == GAMEMODE_SINGLEPLAYER)
             {
-                printf("It's ");
-                SetConsoleTextAttribute(consoleHandle, player == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
-                printf("player %i's", player);
-                SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
-                printf(" turn! Type a column number, or Z to undo, Y to redo: \n");
-                fgets(input, sizeof input, stdin);
-            }
-            
-            if (input[0] == 'z')
-            {
-                printf("undo...");
-                Sleep(10);
-                gamestate_undo(&game);
-                continue;
-            }
-
-            if (input[0] == 'y')
-            {
-                printf("redo...");
-                Sleep(10);
-                gamestate_redo(&game);
-                continue;
-            }
-
-            if (input[0] != '\n') {
-                int column;
-                sscanf_s(input, "%d", &column);
-
-                if (column < 1 || column > game.board.width)
+                const int player = 1 + (game.turnCount % 2);
+                int winner = gamestate_check_winner(&game);
+                board_print(&game.board);
+                if (winner > 0) {
+                    SetConsoleTextAttribute(consoleHandle, winner == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
+                    printf("Player %i won the game!", winner);
+                    SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
+                    printf(" Press enter to return to menu.\n");
+                    gamestate_save(&game);
+                    fgets(input, sizeof input, stdin);
+                    inMenu = 1;
+                }
+                else
                 {
-                    printf("Bad input...");
-                    Sleep(2000);
+                    if (player == 2 && game.mode == GAMEMODE_SINGLEPLAYER) {
+                        // TODO: AI move
+                        printf("The AI is making a move...");
+                        gamestate_push(&game, 2, rand() % game.board.width);
+                        Sleep(1000);
+                        continue;
+                    }
+                    else {
+                        printf("It's ");
+                        SetConsoleTextAttribute(consoleHandle, player == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
+                        printf("player %i's", player);
+                        SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
+                        printf(" turn! Type a column number, or Z to undo, Y to redo, Q to quit: \n");
+                        fgets(input, sizeof input, stdin);
+                    }
+                }
+
+                if (input[0] == 'q')
+                {
+                    inMenu = 1;
                     continue;
                 }
 
-                gamestate_push(&game, player, column - 1);
+                if (input[0] == 'z')
+                {
+                    printf("undo...");
+                    Sleep(10);
+                    gamestate_undo(&game);
+                    continue;
+                }
+
+                if (input[0] == 'y')
+                {
+                    printf("redo...");
+                    Sleep(10);
+                    gamestate_redo(&game);
+                    continue;
+                }
+
+                if (input[0] != '\n') {
+                    int column;
+                    sscanf_s(input, "%d", &column);
+
+                    if (column < 1 || column > game.board.width)
+                    {
+                        printf("Bad input...");
+                        Sleep(2000);
+                        continue;
+                    }
+
+                    gamestate_push(&game, player, column - 1);
+                }
             }
         }
     }
