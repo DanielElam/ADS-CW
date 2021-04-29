@@ -58,3 +58,39 @@ int board_findEmptyRow(struct board* board, int column)
     }
     return -1;
 }
+
+/*
+    Prints the board to the console window.
+ */
+void board_print(struct board* board)
+{
+    int x, y;
+
+    printf("COL #:");
+    for (y = 0; y < board->width; y++)
+    {
+        printf(" %i ", y + 1);
+    }
+    printf("\n");
+
+
+    for (y = 0; y < board->height; y++)
+    {
+        printf("      ");
+        for (x = 0; x < board->width; x++)
+        {
+            int plr = *board_getCell(board, x, y);
+            int colour = BACKGROUND_BLUE;
+
+            if (plr == 1)
+                colour = COLOUR_PLR1;
+            else if (plr == 2)
+                colour = COLOUR_PLR2;
+
+            SetConsoleTextAttribute(consoleHandle, colour);
+            printf(" O ");
+        }
+        SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
+        printf("\n");
+    }
+}

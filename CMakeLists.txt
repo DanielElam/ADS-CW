@@ -4,4 +4,4 @@
 cmake_minimum_required (VERSION 3.8)
 
 project ("ADS-CW")
-add_executable (ADS-CW  "./main.c" "board.h" "console.h" "gamestate.h"   "movestack.h")
+add_executable (ADS-CW  "./main.c" "board.h" "console.h"  "gamestate.h"  "movestack.h")

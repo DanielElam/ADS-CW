@@ -1,5 +1,6 @@
 #pragma once
 #include "str_builder.h"
+#include <time.h>
 enum gamemode { GAMEMODE_SINGLEPLAYER, GAMEMODE_TWOPLAYER, GAMEMODE_REPLAY };
 
 struct gamestate
@@ -45,7 +46,7 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
         printf("Bad move - column full!");
         return;
     }
-    
+
     movestack_push(&game->moveStack, move);
     movestack_clear(&game->undoStack);
 
@@ -53,7 +54,7 @@ void gamestate_push(struct gamestate* game, const int player, const int column)
 }
 
 /*
- * Pop a new move from the move stack, push it onto the undo stack
+ * Pop the last move from the move stack, push it onto the undo stack
  */
 void gamestate_undo(struct gamestate* game)
 {
@@ -72,7 +73,7 @@ void gamestate_undo(struct gamestate* game)
 }
 
 /*
- * Pop a new move from the undo stack, push it onto the move stack
+ * Pop the last move from the undo stack, push it onto the move stack
  */
 void gamestate_redo(struct gamestate* game)
 {
@@ -86,20 +87,24 @@ void gamestate_redo(struct gamestate* game)
     *board_getCell(&game->board, lastMove.column, y) = lastMove.player;
 }
 
-
-// scan the grid for a a row of fours
-// algorithm based on https://stackoverflow.com/a/38211417
-int gamestate_check_winner_scan(struct gamestate* game, int player)
+/*
+ * Scan the grid for a row of four pieces placed by a single player
+ */
+int gamestate_check_winner(struct gamestate* game)
 {
     struct board* board = &game->board;
     int width = board->width;
     int height = board->height;
 
+    // algorithm based on: https://stackoverflow.com/a/38211417
+
     // vertical check 
     for (int j = 0; j < height - 3; j++) {
         for (int i = 0; i < width; i++) {
-            if (*board_getCell(board, i, j) == player && *board_getCell(board, i, j+1) == player && *board_getCell(board, i, j+2) == player && *board_getCell(board, i, j+3) == player) {
-                return 1;
+            for (int player = 1; player <= 2; player++) {
+                if (*board_getCell(board, i, j) == player && *board_getCell(board, i, j + 1) == player && *board_getCell(board, i, j + 2) == player && *board_getCell(board, i, j + 3) == player) {
+                    return player;
+                }
             }
         }
     }
@@ -107,37 +112,39 @@ int gamestate_check_winner_scan(struct gamestate* game, int player)
     // horizontal check
     for (int i = 0; i < width - 3; i++) {
         for (int j = 0; j < height; j++) {
-            if (*board_getCell(board, i, j) == player && *board_getCell(board, i+1, j) == player && *board_getCell(board, i + 2, j) == player && *board_getCell(board, i+3, j) == player) {
-                return 1;
+            for (int player = 1; player <= 2; player++) {
+                if (*board_getCell(board, i, j) == player && *board_getCell(board, i + 1, j) == player && *board_getCell(board, i + 2, j) == player && *board_getCell(board, i + 3, j) == player) {
+                    return player;
+                }
             }
         }
     }
+
     // diagonal check (ascending)
     for (int i = 3; i < width; i++) {
         for (int j = 0; j < height - 3; j++) {
-            if (*board_getCell(board, i, j) == player && *board_getCell(board, i - 1, j + 1) == player && *board_getCell(board, i - 2, j + 2) == player && *board_getCell(board, i - 3, j + 3) == player)
-                return 1;
+            for (int player = 1; player <= 2; player++) {
+                if (*board_getCell(board, i, j) == player && *board_getCell(board, i - 1, j + 1) == player && *board_getCell(board, i - 2, j + 2) == player && *board_getCell(board, i - 3, j + 3) == player)
+                    return player;
+            }
         }
     }
+
     // diagonal check (descending)
     for (int i = 3; i < width; i++) {
         for (int j = 3; j < height; j++) {
-            if (*board_getCell(board, i, j) && *board_getCell(board, i - 1, j - 1) == player && *board_getCell(board, i - 2, j - 2) == player && *board_getCell(board, i - 3, j - 3) == player)
-                return 1;
+            for (int player = 1; player <= 2; player++) {
+                if (*board_getCell(board, i, j) && *board_getCell(board, i - 1, j - 1) == player && *board_getCell(board, i - 2, j - 2) == player && *board_getCell(board, i - 3, j - 3) == player)
+                    return 1;
+            }
         }
     }
     return 0;
 }
 
-int gamestate_check_winner(struct gamestate* game)
-{
-    if (gamestate_check_winner_scan(game, 1) == 1)
-        return 1;
-    else if (gamestate_check_winner_scan(game, 2) == 1)
-        return 2;
-    return 0;
-}
-
+/*
+ * Serialize the board size and record of moves to a new file
+ */
 void gamestate_save(struct gamestate* game)
 {
     time_t now = time(NULL);
@@ -146,12 +153,17 @@ void gamestate_save(struct gamestate* game)
     char filename[40];
     strftime(filename, sizeof(filename), "connect4-save_%Y-%m-%d_%H-%M-%S.txt", time);
 
-    struct str_builder sb;
-    str_builder_init(&sb);
-    str_builder_addString(&sb, "# Connect 4 Game Save\n", 0);
-
     char buffer[255];
 
+    struct str_builder sb;
+    str_builder_init(&sb);
+
+    // write the header with board dimensions
+    str_builder_addString(&sb, "# Connect 4 Game Save\n", 0);
+    sprintf(buffer, "~ %i %i\n", game->board.width, game->board.height);
+    str_builder_addString(&sb, buffer, 0);
+
+    // write new line for each move
     int i;
     for (i = 0; i < game->moveStack.head; i++)
     {

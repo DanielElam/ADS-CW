@@ -1,61 +1,35 @@
 ﻿
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
+#include "console.h"
 
 #include "movestack.h"
 #include "board.h"
-#include "console.h"
 #include "gamestate.h"
 
 
-/*
-    Prints the board to the console window.
- */
-void board_print(struct board* board)
-{
-    int x, y;
-
-    printf("COL #:");
-    for (y = 0; y <= board->height; y++)
-    {
-        printf(" %i ", y + 1);
-    }
-    printf("\n");
-
-
-    for (y = 0; y < board->height; y++)
-    {
-        printf("      ");
-        for (x = 0; x < board->width; x++)
-        {
-            int plr = *board_getCell(board, x, y);
-            int colour = BACKGROUND_BLUE;
-
-            if (plr == 1)
-                colour = COLOUR_PLR1;
-            else if (plr == 2)
-                colour = COLOUR_PLR2;
-
-            SetConsoleTextAttribute(consoleHandle, colour);
-            printf(" O ");
-        }
-        SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
-        printf("\n");
-    }
-}
-
-void parse_savegame(struct gamestate* game, FILE* file, int* replay_turn_count, struct movestack* moveStack)
+void parse_savegame(struct gamestate* game, FILE* file, struct movestack* moveStack)
 {
     char buffer[255];
 
     struct move move;
 
-    while (fgets(buffer, 255, file)) {
-        printf("%s\n", buffer);
+    int boardWidth = 0;
+    int boardHeight = 0;
 
+    while (fgets(buffer, 255, file)) {
         if (buffer[0] == '#')
             continue;
+
+        if (buffer[0] == '~')
+        {
+            char* token = strtok(buffer, " ");
+            token = strtok(NULL, " ");
+            sscanf_s(token, "%d", &boardWidth);
+            token = strtok(NULL, " ");
+            sscanf_s(token, "%d", &boardHeight);
+            continue;
+        }
 
         char* token = strtok(buffer, " ");
 
@@ -79,6 +53,63 @@ void parse_savegame(struct gamestate* game, FILE* file, int* replay_turn_count, 
             }
         }
     }
+
+    // load the correct board size
+    board_init(&game->board, boardWidth, boardHeight);
+}
+
+void ask_board_size(struct gamestate* game)
+{
+    char input[4];
+    int selected = 0;
+
+    while (!selected) {
+        clear_console();
+        printf("Select a board size\n");
+        printf("  1) 7x6\n");
+        printf("  2) 5x4\n");
+        printf("  3) 6x5\n");
+        printf("  4) 8x7\n");
+        printf("  5) 9x7\n");
+        printf("  6) 10x7\n");
+        printf("  7) 8x8\n");
+
+        fgets(input, sizeof input, stdin);
+        int sizeSelect;
+        sscanf_s(input, "%d", &sizeSelect);
+
+        switch (sizeSelect)
+        {
+        case 2:
+            board_init(&game->board, 5, 4);
+            selected = 1;
+            break;
+        case 3:
+            board_init(&game->board, 6, 5);
+            selected = 1;
+            break;
+        case 4:
+            board_init(&game->board, 8, 7);
+            selected = 1;
+            break;
+        case 5:
+            board_init(&game->board, 9, 7);
+            selected = 1;
+            break;
+        case 6:
+            board_init(&game->board, 10, 7);
+            selected = 1;
+            break;
+        case 7:
+            board_init(&game->board, 8, 8);
+            selected = 1;
+            break;
+        case 1:
+        default:
+            board_init(&game->board, 7, 6);
+            break;
+        }
+    }
 }
 
 int main(void* args)
@@ -93,7 +124,7 @@ int main(void* args)
     struct gamestate game;
     gamestate_init(&game);
 
-    int replayTurnCount;
+    int replayIndex = 0;
     struct movestack replayStack;
     movestack_init(&replayStack);
 
@@ -117,11 +148,13 @@ int main(void* args)
             switch (select)
             {
             case 1:
+                ask_board_size(&game);
                 inMenu = 0;
                 game.mode = GAMEMODE_SINGLEPLAYER;
                 gamestate_reset(&game);
                 break;
             case 2:
+                ask_board_size(&game);
                 inMenu = 0;
                 game.mode = GAMEMODE_TWOPLAYER;
                 gamestate_reset(&game);
@@ -150,7 +183,8 @@ int main(void* args)
                 }
 
                 if (file != NULL) {
-                    parse_savegame(&game, file, &replayTurnCount, &replayStack);
+                    replayIndex = 0;
+                    parse_savegame(&game, file, &replayStack);
 
                     inMenu = 0;
                     gamestate_reset(&game);
@@ -196,7 +230,8 @@ int main(void* args)
                         SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
                         printf(" turn! (REPLAY)\n");
 
-                        struct move replayMove = movestack_pop(&replayStack);
+                        // iterate the replayStack
+                        struct move replayMove = replayStack.buffer[replayIndex++];
                         gamestate_push(&game, replayMove.player, replayMove.column);
                         input[0] = '\n';
 
@@ -251,7 +286,6 @@ int main(void* args)
         }
     }
 
-    printf("Test");
     return 0;
 }
 
