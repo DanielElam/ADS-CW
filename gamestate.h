@@ -9,6 +9,9 @@ struct gamestate
     enum gamemode mode;
     struct movestack moveStack;
     struct movestack undoStack;
+    struct movestack replayStack;
+    int replayIndex;
+    int inMenu;
 };
 
 /*
@@ -20,6 +23,8 @@ void gamestate_init(struct gamestate* game)
     game->mode = (enum gamemode)0;
     movestack_init(&game->moveStack);
     movestack_init(&game->undoStack);
+    movestack_init(&game->replayStack);
+    game->replayIndex = 0;
 }
 
 /*
