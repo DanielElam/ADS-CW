@@ -19,7 +19,6 @@ struct gamestate
 */
 void gamestate_init(struct gamestate* game)
 {
-    board_init(&game->board, 7, 6);
     game->mode = (enum gamemode)0;
     movestack_init(&game->moveStack);
     movestack_init(&game->undoStack);
@@ -94,6 +93,7 @@ void gamestate_redo(struct gamestate* game)
 
 /*
  * Scan the grid for a row of four pieces placed by a single player
+ * Returns: 0 if there is no winner, 1 if player 1 won, 2 if player 2 won, 3 if stalemate (board full)
  */
 int gamestate_check_winner(struct gamestate* game)
 {
@@ -101,13 +101,21 @@ int gamestate_check_winner(struct gamestate* game)
     int width = board->width;
     int height = board->height;
 
-    // algorithm based on: https://stackoverflow.com/a/38211417
+    int isEmpty = 0;
 
+    // algorithm based on: https://stackoverflow.com/a/38211417
+    
     // vertical check 
     for (int j = 0; j < height - 3; j++) {
         for (int i = 0; i < width; i++) {
             for (int player = 1; player <= 2; player++) {
-                if (*board_getCell(board, i, j) == player && *board_getCell(board, i, j + 1) == player && *board_getCell(board, i, j + 2) == player && *board_getCell(board, i, j + 3) == player) {
+                const int a = *board_getCell(board, i, j);
+                const int b = *board_getCell(board, i, j + 1);
+                const int c = *board_getCell(board, i, j + 2);
+                const int d = *board_getCell(board, i, j + 3);
+                if (!a || !b || !c || !d)
+                    isEmpty = 1;
+                if (a == player && b == player && c == player && d == player) {
                     return player;
                 }
             }
@@ -118,7 +126,13 @@ int gamestate_check_winner(struct gamestate* game)
     for (int i = 0; i < width - 3; i++) {
         for (int j = 0; j < height; j++) {
             for (int player = 1; player <= 2; player++) {
-                if (*board_getCell(board, i, j) == player && *board_getCell(board, i + 1, j) == player && *board_getCell(board, i + 2, j) == player && *board_getCell(board, i + 3, j) == player) {
+                const int a = *board_getCell(board, i, j);
+                const int b = *board_getCell(board, i + 1, j);
+                const int c = *board_getCell(board, i + 2, j);
+                const int d = *board_getCell(board, i + 3, j);
+                if (!a || !b || !c || !d)
+                    isEmpty = 1;
+                if (a == player && b == player && c == player && d == player) {
                     return player;
                 }
             }
@@ -129,8 +143,15 @@ int gamestate_check_winner(struct gamestate* game)
     for (int i = 3; i < width; i++) {
         for (int j = 0; j < height - 3; j++) {
             for (int player = 1; player <= 2; player++) {
-                if (*board_getCell(board, i, j) == player && *board_getCell(board, i - 1, j + 1) == player && *board_getCell(board, i - 2, j + 2) == player && *board_getCell(board, i - 3, j + 3) == player)
+                const int a = *board_getCell(board, i, j);
+                const int b = *board_getCell(board, i - 1, j + 1);
+                const int c = *board_getCell(board, i - 2, j + 2);
+                const int d = *board_getCell(board, i - 3, j + 3);
+                if (!a || !b || !c || !d)
+                    isEmpty = 1;
+                if (a == player && b == player && c == player && d == player) {
                     return player;
+                }
             }
         }
     }
@@ -139,12 +160,20 @@ int gamestate_check_winner(struct gamestate* game)
     for (int i = 3; i < width; i++) {
         for (int j = 3; j < height; j++) {
             for (int player = 1; player <= 2; player++) {
-                if (*board_getCell(board, i, j) && *board_getCell(board, i - 1, j - 1) == player && *board_getCell(board, i - 2, j - 2) == player && *board_getCell(board, i - 3, j - 3) == player)
-                    return 1;
+                const int a = *board_getCell(board, i, j);
+                const int b = *board_getCell(board, i - 1, j - 1);
+                const int c = *board_getCell(board, i - 2, j - 2);
+                const int d = *board_getCell(board, i - 3, j - 3);
+                if (!a || !b || !c || !d)
+                    isEmpty = 1;
+                if (a == player && b == player && c == player && d == player) {
+                    return player;
+                }
             }
         }
     }
-    return 0;
+
+    return isEmpty ? 0 : 3;
 }
 
 /*

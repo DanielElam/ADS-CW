@@ -20,11 +20,12 @@ void parse_savegame(struct gamestate* game, FILE* file, struct movestack* moveSt
     game->replayIndex = 0;
     movestack_clear(moveStack);
 
+    // loop through every line in the file
     while (fgets(buffer, 255, file)) {
-        if (buffer[0] == '#')
+        if (buffer[0] == '#') // header line is ignored
             continue;
 
-        if (buffer[0] == '~')
+        if (buffer[0] == '~') // this line contains the board dimensions
         {
             char* token = strtok(buffer, " ");
             token = strtok(NULL, " ");
@@ -34,22 +35,24 @@ void parse_savegame(struct gamestate* game, FILE* file, struct movestack* moveSt
             continue;
         }
 
+        // otherwise the line is assumed to be a player move.
         char* token = strtok(buffer, " ");
 
         while (token != NULL)
         {
             token = strtok(NULL, " ");
-            if (strcmp(token, "Player") == 0)
+            if (strcmp(token, "Player") == 0) // found the word "Player", parse the sentence for plr no and column
             {
                 token = strtok(NULL, " ");
                 sscanf_s(token, "%d", &move.player);
 
+                strtok(NULL, " "); // skip some wording
                 strtok(NULL, " ");
                 strtok(NULL, " ");
-                strtok(NULL, " ");
+
                 token = strtok(NULL, " ");
                 sscanf_s(token, "%d", &move.column);
-                move.column--;
+                move.column--; // save file columns start with 1, program expects columns starting at 0
 
                 movestack_push(moveStack, move);
                 break;
@@ -81,6 +84,7 @@ void ask_board_size(struct gamestate* game)
         int sizeSelect;
         sscanf_s(input, "%d", &sizeSelect);
 
+        // initialize the board with the selected size
         switch (sizeSelect)
         {
         case 2:
@@ -192,10 +196,19 @@ void game_step(struct gamestate* game)
         int winner = gamestate_check_winner(game);
         board_print(&game->board);
         if (winner > 0) {
-            SetConsoleTextAttribute(consoleHandle, winner == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
-            printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
-            printf("  ! ! Player %i won the game ! !\n", winner);
-            printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
+            if (winner != 3) {
+                SetConsoleTextAttribute(consoleHandle, winner == 1 ? COLOUR_PLR1_NOBG : COLOUR_PLR2_NOBG);
+                printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
+                printf("  ! ! Player %i won the game ! !\n", winner);
+                printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
+            }
+            else
+            {
+                SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
+                printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
+                printf("  ! !   S T A L E M A T E   ! !\n");
+                printf("  ! ! ! ! ! ! ! ! ! ! ! ! ! ! !\n");
+            }
             SetConsoleTextAttribute(consoleHandle, COLOUR_DEFAULT);
             printf("  > Press enter to return to menu.\n");
             if (game->mode != GAMEMODE_REPLAY)
@@ -279,7 +292,7 @@ int main(void* args)
     int k;
     consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    struct gamestate game;
+    struct gamestate game = {0};
     gamestate_init(&game);
     game.inMenu = 1;
 

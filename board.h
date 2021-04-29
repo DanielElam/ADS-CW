@@ -29,6 +29,8 @@ void board_clear(struct board* board)
 /* Initialize the given board struct */
 void board_init(struct board* board, int width, int height)
 {
+    if (board->grid)
+        free(board->grid);
     board->width = width;
     board->height = height;
     board->grid = (int*)calloc(width * height, sizeof(int));
